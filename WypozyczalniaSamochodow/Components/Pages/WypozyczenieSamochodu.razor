@@ -1,0 +1,94 @@
+﻿@page "/wypozyczenie"
+@using Microsoft.EntityFrameworkCore;
+@inject NavigationManager Navigation
+@inject AppDbContext DbContext
+
+<h3>Wypożyczenie samochodu</h3>
+
+<EditForm Model="@wypozyczenie" OnValidSubmit="HandleValidSubmit" formname="Wypozyczanie samochodu">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div class="form-group">
+        <label for="samochod">Wybierz samochód:</label>
+        <InputSelect id="samochod" class="form-control" @bind-Value="wypozyczenie.IdSamochodu">
+            <option value="">-- Wybierz samochód --</option>
+            @foreach (var samochod in samochody)
+            {
+                <option value="@samochod.Id">@samochod.Marka @samochod.Model (@samochod.RokProdukcji)</option>
+            }
+        </InputSelect>
+        <ValidationMessage For="@(() => wypozyczenie.IdSamochodu)" />
+    </div>
+
+    <div class="form-group">
+        <label for="dataWypozyczenia">Data wypożyczenia:</label>
+        <InputDate id="dataWypozyczenia" class="form-control" @bind-Value="wypozyczenie.DataWypozyczenia" />
+        <ValidationMessage For="@(() => wypozyczenie.DataWypozyczenia)" />
+    </div>
+
+    <div class="form-group">
+        <label for="dataZwrotu">Data zwrotu:</label>
+        <InputDate id="dataZwrotu" class="form-control" @bind-Value="wypozyczenie.DataZwrotu" />
+        <ValidationMessage For="@(() => wypozyczenie.DataZwrotu)" />
+    </div>
+
+    <div class="form-group">
+        <label for="koszt">Koszt wypożyczenia (zł):</label>
+        <InputNumber id="koszt" class="form-control" @bind-Value="wypozyczenie.Koszt" Disabled="true" />
+    </div>
+
+    <div class="form-group">
+        <button type="submit" class="btn btn-primary" @disabled="!CanSubmit()">Zatwierdź wypożyczenie</button>
+    </div>
+</EditForm>
+
+@code {
+    private Wypozyczenie wypozyczenie = new Wypozyczenie();
+    private List<Samochod> samochody = new List<Samochod>();
+    private decimal cenaZaDzien;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Pobierz dostępne samochody z bazy danych
+        samochody = await DbContext.Samochody.Where(s => s.Dostepnosc).ToListAsync();
+    }
+
+    private void HandleValidSubmit()
+    {
+        // Ustaw koszt wypożyczenia na podstawie daty i ceny za dzień
+        var liczbaDni = (wypozyczenie.DataZwrotu - wypozyczenie.DataWypozyczenia)?.Days ?? 0;
+        if (liczbaDni > 0)
+        {
+            wypozyczenie.Koszt = cenaZaDzien * liczbaDni;
+        }
+
+        // Zmiana dostępności samochodu na "niedostępny"
+        var samochod = DbContext.Samochody.Find(wypozyczenie.IdSamochodu);
+        if (samochod != null)
+        {
+            samochod.Dostepnosc = false;
+            DbContext.Update(samochod);
+        }
+
+        // Dodanie wypożyczenia do bazy
+        DbContext.Wypozyczenia.Add(wypozyczenie);
+        DbContext.SaveChanges();
+
+        // Przekierowanie do strony z potwierdzeniem lub listą wypożyczeń
+        Navigation.NavigateTo("/moje-wypozyczenia");
+    }
+
+    private void OnSamochodChanged(ChangeEventArgs e)
+    {
+        var selectedSamochodId = int.Parse(e.Value.ToString() ?? "0");
+        var selectedSamochod = samochody.FirstOrDefault(s => s.Id == selectedSamochodId);
+        cenaZaDzien = selectedSamochod?.CenaZaDzien ?? 0;
+        wypozyczenie.Koszt = cenaZaDzien;
+    }
+
+    private bool CanSubmit()
+    {
+        return wypozyczenie.IdSamochodu > 0 && wypozyczenie.DataWypozyczenia != default && wypozyczenie.DataZwrotu != default && wypozyczenie.DataZwrotu > wypozyczenie.DataWypozyczenia;
+    }
+}

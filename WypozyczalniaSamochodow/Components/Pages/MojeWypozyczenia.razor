@@ -1,0 +1,71 @@
+﻿@page "/moje-wypozyczenia"
+@using WypozyczalniaSamochodow
+@using Microsoft.EntityFrameworkCore
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AppDbContext DbContext
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager Navigation
+
+<PageTitle>Moje Wypożyczenia</PageTitle>
+
+@if (wypozyczenia == null)
+{
+    <p>Ładowanie danych...</p>
+}
+else if (!wypozyczenia.Any())
+{
+    <p>Brak wypożyczeń.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Marka</th>
+                <th>Model</th>
+                <th>Data Wypożyczenia</th>
+                <th>Data Zwrotu</th>
+                <th>Koszt</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var wypozyczenie in wypozyczenia)
+            {
+                <tr>
+                    <td>@wypozyczenie.Samochod.Marka</td>
+                    <td>@wypozyczenie.Samochod.Model</td>
+                    <td>@wypozyczenie.DataWypozyczenia.ToShortDateString()</td>
+                    <td>@(wypozyczenie.DataZwrotu?.ToShortDateString() ?? "Brak zwrotu")</td>
+                    <td>@wypozyczenie.Koszt.ToString("C2")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Wypozyczenie> wypozyczenia;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Pobieranie stanu użytkownika (zalogowanego)
+        var authenticationState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authenticationState.User;
+
+        if (user == null || !user.Identity.IsAuthenticated)
+        {
+            // Jeśli użytkownik nie jest zalogowany, przekieruj go na stronę logowania
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
+        // Pobieranie ID zalogowanego użytkownika
+        var userId = Convert.ToInt32(user.FindFirst("sub")?.Value); // "sub" zakłada, że ID użytkownika jest w tym polu w tokenie
+
+        // Pobieranie wypożyczeń użytkownika z bazy danych
+        wypozyczenia = await DbContext.Wypozyczenia
+            .Include(w => w.Samochod) // Eager loading samochodów
+            .Where(w => w.IdUzytkownika == userId)
+            .ToListAsync();
+    }
+}

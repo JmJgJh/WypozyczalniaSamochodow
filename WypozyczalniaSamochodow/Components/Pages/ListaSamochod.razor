@@ -1,0 +1,128 @@
+﻿@page "/samochody"
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext DbContext
+@inject NavigationManager NavigationManager
+
+<h3>Samochody</h3>
+<div class="d-flex flex-column mb-3">
+    <div class="dropdown mb-3">
+        <button class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+            Sortuj i Filtruj
+        </button>
+        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <li><button class="dropdown-item" @onclick="SortByAlphabet">Sortuj według alfabetu</button></li>
+            <li><button class="dropdown-item" @onclick="SortByPrice">Sortuj według ceny za dzień</button></li>
+            <li><button class="dropdown-item" @onclick="SortByYear">Sortuj według rocznika</button></li>
+            <li>
+                <div class="dropdown-item">
+                    <label for="filterMarka">Filtruj według marki:</label>
+                    <input type="text" id="filterMarka" @bind="FilterMarka" @bind:event="oninput" class="form-control" />
+                </div>
+            </li>
+        </ul>
+    </div>
+    <AuthorizeView Roles="Administrator">
+        <button class="btn btn-primary mb-3" @onclick="NavigateToAdd">Dodaj Samochód</button>
+    </AuthorizeView>
+</div>
+
+@if (isLoading)
+{
+    <p>Ładowanie danych...</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Marka</th>
+                <th>Model</th>
+                <th>Cena za dzień</th>
+                <th>Akcje</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var samochod in FilteredSamochody)
+            {
+                <tr>
+                    <td>@samochod.Marka</td>
+                    <td>@samochod.Model</td>
+                    <td>@samochod.CenaZaDzien</td>
+                    <td>
+                        <button class="btn btn-info" @onclick="() => NavigateToDetails(samochod.Id)">Szczegóły</button>
+                        <AuthorizeView Roles="Administrator">
+                            <button class="btn btn-danger" @onclick="() => DeleteSamochod(samochod.Id)">Usuń</button>
+                        </AuthorizeView>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Samochod> Samochody = new();
+    private List<Samochod> FilteredSamochody = new();
+    private string FilterMarka = string.Empty;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSamochody();
+        isLoading = false;
+    }
+
+    private async Task LoadSamochody()
+    {
+        Samochody = await DbContext.Samochody.ToListAsync();
+        FilterSamochody();
+    }
+
+    private void SortByAlphabet()
+    {
+        FilteredSamochody = FilteredSamochody.OrderBy(s => s.Marka).ToList();
+    }
+
+    private void SortByPrice()
+    {
+        FilteredSamochody = FilteredSamochody.OrderBy(s => s.CenaZaDzien).ToList();
+    }
+
+    private void SortByYear()
+    {
+        FilteredSamochody = FilteredSamochody.OrderBy(s => s.RokProdukcji).ToList();
+    }
+
+    private void FilterSamochody()
+    {
+        if (!string.IsNullOrWhiteSpace(FilterMarka))
+        {
+            FilteredSamochody = Samochody.Where(s => s.Marka.Contains(FilterMarka, StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        else
+        {
+            FilteredSamochody = Samochody;
+        }
+    }
+
+    private void NavigateToAdd()
+    {
+        NavigationManager.NavigateTo("/samochody/dodaj");
+    }
+
+    private void NavigateToDetails(int id)
+    {
+        NavigationManager.NavigateTo($"/samochody/szczegoly/{id}");
+    }
+
+    private async Task DeleteSamochod(int id)
+    {
+        var samochod = await DbContext.Samochody.FindAsync(id);
+        if (samochod != null)
+        {
+            DbContext.Samochody.Remove(samochod);
+            await DbContext.SaveChangesAsync();
+            await LoadSamochody();
+        }
+    }
+}

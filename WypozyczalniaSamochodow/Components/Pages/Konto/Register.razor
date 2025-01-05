@@ -1,0 +1,83 @@
+﻿@page "/register"
+@inject AppDbContext DbContext
+@inject NavigationManager Navigation
+
+<h3>Rejestracja</h3>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p style="color:red">@ErrorMessage</p>
+}
+
+<EditForm Model="@newUser" OnValidSubmit="HandleRegister" FormName="RegisterForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label for="imie">Imię:</label>
+        <InputText @bind-Value="newUser.Imie" class="form-control" id="imie" name="imie" />
+        <ValidationMessage For="@(() => newUser.Imie)" />
+    </div>
+
+    <div>
+        <label for="nazwisko">Nazwisko:</label>
+        <InputText @bind-Value="newUser.Nazwisko" class="form-control" id="nazwisko" name="nazwisko" />
+        <ValidationMessage For="@(() => newUser.Nazwisko)" />
+    </div>
+
+    <div>
+        <label for="email">Email:</label>
+        <InputText @bind-Value="newUser.Email" class="form-control" id="email" name="email" />
+        <ValidationMessage For="@(() => newUser.Email)" />
+    </div>
+
+    <div>
+        <label for="haslo">Hasło:</label>
+        <InputText @bind-Value="newUser.Haslo" class="form-control" type="password" id="haslo" name="haslo" />
+        <ValidationMessage For="@(() => newUser.Haslo)" />
+    </div>
+
+    <div>
+        <label for="pesel">PESEL:</label>
+        <InputText @bind-Value="newUser.Pesel" class="form-control" id="pesel" name="pesel" />
+        <ValidationMessage For="@(() => newUser.Pesel)" />
+    </div>
+
+    <div>
+        <label for="plec">Płeć:</label>
+        <InputSelect @bind-Value="newUser.Plec" class="form-control" id="plec" name="plec">
+            <option value="">Wybierz...</option>
+            <option value="Kobieta">Kobieta</option>
+            <option value="Mężczyzna">Mężczyzna</option>
+            <option value="Inna">Inna</option>
+        </InputSelect>
+        <ValidationMessage For="@(() => newUser.Plec)" />
+    </div>
+
+    <div>
+        <label for="dataUrodzenia">Data urodzenia:</label>
+        <InputDate @bind-Value="newUser.DataUrodzenia" class="form-control" id="dataUrodzenia" name="dataUrodzenia" />
+        <ValidationMessage For="@(() => newUser.DataUrodzenia)" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Zarejestruj</button>
+</EditForm>
+
+@code {
+    private Uzytkownik newUser = new Uzytkownik();
+    private string ErrorMessage;
+
+    private async Task HandleRegister()
+    {
+        if (DbContext.Uzytkownicy.Any(u => u.Email == newUser.Email))
+        {
+            ErrorMessage = "Użytkownik z tym adresem email już istnieje.";
+            return;
+        }
+
+        DbContext.Uzytkownicy.Add(newUser);
+        await DbContext.SaveChangesAsync();
+        Navigation.NavigateTo("/login");
+    }
+}
+

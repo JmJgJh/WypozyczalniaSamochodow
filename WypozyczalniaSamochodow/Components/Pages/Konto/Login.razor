@@ -1,0 +1,84 @@
+﻿@using System.ComponentModel.DataAnnotations;
+@using System.ComponentModel.DataAnnotations.Schema;
+@using Microsoft.AspNetCore.Authentication.Cookies;
+@using Microsoft.AspNetCore.Authentication;
+@using WypozyczalniaSamochdow.Models;
+@using System.Security.Claims
+
+@inject NavigationManager Navigation;
+@inject IHttpContextAccessor HttpContextAccessor;
+@inject AppDbContext DbContext;
+@page "/login"
+
+<h3>Logowanie</h3>
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <p style="color:red">@ErrorMessage</p>
+}
+
+<EditForm Model="@loginModel" OnValidSubmit="HandleLogin" formname="LoginForm">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    <div>
+        <label>Email:</label>
+        <InputText @bind-Value="loginModel.Email" class="form-control" />
+    </div>
+    <div>
+        <label>Hasło:</label>
+        <InputText @bind-Value="loginModel.Haslo" class="form-control" type="password" />
+    </div>
+    <button type="submit" class="btn btn-primary">Zaloguj</button>
+</EditForm>
+
+@code {
+    private LoginModel loginModel = new LoginModel();
+    private string ErrorMessage;
+
+    private async Task HandleLogin()
+    {
+        // Wyszukaj użytkownika w bazie danych
+        var user = DbContext.Uzytkownicy.SingleOrDefault(u => u.Email == loginModel.Email);
+
+        if (user == null || user.Haslo != loginModel.Haslo)
+        {
+            ErrorMessage = "Nieprawidłowy email lub hasło.";
+            return;
+        }
+
+        // Tworzymy Claims na podstawie danych użytkownika
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.Name, user.Email),   // Przechowujemy email użytkownika
+            new Claim(ClaimTypes.Role, user.Rola)     // Przechowujemy rolę użytkownika (np. Administrator)
+        };
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        // Zalogowanie użytkownika
+        await HttpContextAccessor.HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, principal);
+
+        // Przekierowanie do odpowiedniej strony po zalogowaniu
+        if (user.Rola == "Administrator")
+        {
+            // Przekierowanie do panelu administratora
+            Navigation.NavigateTo("/admin-dashboard");
+        }
+        else
+        {
+            // Przekierowanie do strony użytkownika
+            Navigation.NavigateTo("/");
+        }
+    }
+
+    private class LoginModel
+    {
+        [Required]
+        public string Email { get; set; }
+
+        [Required]
+        public string Haslo { get; set; }
+    }
+}
