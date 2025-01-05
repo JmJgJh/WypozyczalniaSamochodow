@@ -1,0 +1,58 @@
+﻿@page "/users"
+@using WypozyczalniaSamochdow.Models
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@inject AppDbContext DbContext
+@inject NavigationManager Navigation
+
+<AuthorizeView Roles="Administrator">
+    <Authorized>
+        <h3>Lista Użytkowników</h3>
+
+        @if (users == null)
+        {
+            <p><em>Wczytywanie użytkowników...</em></p>
+        }
+        else
+        {
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Imię</th>
+                        <th>Nazwisko</th>
+                        <th>Email</th>
+                        <th>Rola</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in users)
+                    {
+                        <tr>
+                            <td>@user.Imie</td>
+                            <td>@user.Nazwisko</td>
+                            <td>@user.Email</td>
+                            <td>@user.Rola</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+    </Authorized>
+
+    <NotAuthorized>
+        <p>Nie masz uprawnień do wyświetlenia tej strony.</p>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private List<Uzytkownik> users;
+
+    // Metoda wywoływana przy inicjalizacji komponentu
+    protected override async Task OnInitializedAsync()
+    {
+        // Pobieranie użytkowników z bazy danych, filtrując tylko tych, którzy są administratorem
+        users = await DbContext.Uzytkownicy
+            .Where(u => u.Rola == "Administrator" || u.Rola == "Uzytkownik")
+            .ToListAsync();
+    }
+}
